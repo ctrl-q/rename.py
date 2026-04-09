@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+import sys
 
 
 
@@ -24,16 +25,28 @@ def parse_args():
 
 
 def replace(path, replacement, args):
+    if path == replacement:
+        if args.verbose:
+            print(f"File {str(path)} is already named {str(replacement)}, skipping", file=sys.stderr)
+        return
+    elif args.no_act:
+        if args.verbose:
+            print(str(path), "->", str(replacement), " (dry run)", file=sys.stderr)
+        return
     if replacement.exists():
         if args.interactive:
-            should_replace = input(f"Replace {str(path)} with {str(replacement)} ? (Y/n)").lower()
-            if should_replace == "n":
-                return
-            elif should_replace != "y":
-                "Invalid answer."
-                replace(path, replacement, args)
-
+            should_replace = input(f"Replace {str(path)} with {str(replacement)} ? (Y/n) ").lower()
+            match should_replace:
+                case "y": pass
+                case "n": return
+                case _:
+                    raise ValueError("Invalid answer")
+        elif args.no_overwrite:
+            print(f"File {str(replacement)} already exists, skipping {str(path)}", file=sys.stderr)
+            return
     path.replace(replacement)
+    if args.verbose:
+        print(str(file), "->", str(replacement), file=sys.stderr)
 
 
 def main():
@@ -44,11 +57,11 @@ def main():
 
     for file in args.file:
         replacement = Path(get_replacement(str(file)))
-        if not args.no_act:
+        try:
             replace(file, replacement, args)
-        if args.verbose:
-            print(str(file), "->", str(replacement))
-
+        except Exception as e:
+            print(f"Error replacing {str(file)} with {str(replacement)}: {e}", file=sys.stderr)
+            exit(1)
 
 if __name__ == "__main__":
     main()
